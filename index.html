@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador Curva de Bragg</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0F1117;
+    --bg2:       #1A1D27;
+    --bg3:       #22263A;
+    --border:    #2E3350;
+    --text:      #E8EAF2;
+    --text2:     #8B90A8;
+    --accent:    #378ADD;
+    --radius:    10px;
+    --font:      'IBM Plex Sans', sans-serif;
+    --mono:      'IBM Plex Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    padding: 2rem 1.5rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  header h1 {
+    font-size: clamp(1.2rem, 3vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.35rem;
+  }
+  header p {
+    font-size: 0.875rem;
+    color: var(--text2);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 1.25rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 4px;
+    padding-left: 2px;
+  }
+  .btn-ion {
+    width: 100%;
+    text-align: left;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text2);
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-ion:hover { border-color: #444A6A; color: var(--text); }
+  .btn-ion.active {
+    background: var(--bg3);
+    color: var(--text);
+    border-color: var(--ion-color);
+    box-shadow: 0 0 0 1px var(--ion-color) inset;
+  }
+  .btn-ion .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--ion-color);
+  }
+
+  /* ── Main panel ── */
+  .main { display: flex; flex-direction: column; gap: 1rem; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .stat-card .label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+  .stat-card .value {
+    font-family: var(--mono);
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .stat-card .unit {
+    font-size: 11px;
+    color: var(--text2);
+    margin-left: 3px;
+  }
+
+  .chart-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem 1rem;
+    position: relative;
+    height: 340px;
+  }
+
+  .note-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.65;
+  }
+  .note-box strong { color: var(--text); }
+
+  .formula-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .formula-row span { color: var(--text); }
+  .formula-row .hi { color: var(--accent); font-weight: 600; }
+
+  /* responsive */
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Simulador de Curva de Bragg</h1>
+  <p>Depósito de energía (dE/dx) en tejido según el proyectil iónico — Bethe-Bloch simplificado</p>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <p class="sidebar-label">Proyectil</p>
+    <div id="btn-group"></div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Formula -->
+    <div class="formula-row">
+      <span>−dE/dx =</span>
+      <span class="hi">4πe⁴z²&thinsp;/&thinsp;mₑv²</span>
+      <span style="color:var(--text2)">·</span>
+      <span>N·Z<sub>mat</sub></span>
+      <span style="color:var(--text2)">·</span>
+      <span>[ ln(2mₑv²/I) − ln(1−β²) − β² ]</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stat-cards">
+      <div class="stat-card"><div class="label">Número atómico Z</div><div class="value" id="s-z">—</div></div>
+      <div class="stat-card"><div class="label">Z² (escala dE/dx)</div><div class="value" id="s-z2">—</div></div>
+      <div class="stat-card"><div class="label">Profundidad pico</div><div class="value" id="s-prof">—<span class="unit">mm</span></div></div>
+      <div class="stat-card"><div class="label">Pico / plateau</div><div class="value" id="s-ratio">—<span class="unit">×</span></div></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-wrap">
+      <canvas id="braggChart"></canvas>
+    </div>
+
+    <!-- Note -->
+    <div class="note-box" id="note-box">—</div>
+
+  </main>
+</div>
+
+<script>
+// ── Datos proyectiles ──────────────────────────────────────────────────────────
+const proyectiles = [
+  { nombre: 'Protón ¹H',     z: 1,  m: 1,  color: '#378ADD',
+    nota: '<strong>Sin fragmentación nuclear.</strong> Pico estrecho y bien definido. El más usado en clínica por su precisión. La caída post-pico es abrupta: cero dosis detrás del tumor.' },
+  { nombre: 'Helio ⁴He',     z: 2,  m: 4,  color: '#1D9E75',
+    nota: '<strong>Pico ~4× más alto que el protón</strong> (escala con Z²=4). Menor dispersión lateral que el protón. En investigación clínica activa.' },
+  { nombre: 'Carbono ¹²C',   z: 6,  m: 12, color: '#D85A30',
+    nota: '<strong>Z²=36.</strong> Pico muy pronunciado. Cola de fragmentación nuclear visible después del pico. Referencia en hadroterapia (centros HIT, CNAO, etc.).' },
+  { nombre: 'Oxígeno ¹⁶O',   z: 8,  m: 16, color: '#9467bd',
+    nota: '<strong>Z²=64.</strong> Pico aún mayor. Alto LET (Transferencia Lineal de Energía) → mayor daño biológico en el ADN. Usado en centros especializados.' },
+  { nombre: 'Neón ²⁰Ne',     z: 10, m: 20, color: '#BA7517',
+    nota: '<strong>Z²=100.</strong> Alcance más corto. Cola de fragmentación considerable. Uso experimental en investigación.' },
+  { nombre: 'Silicio ²⁸Si',  z: 14, m: 28, color: '#A32D2D',
+    nota: '<strong>Z²=196.</strong> Ión muy pesado. Pico enorme pero alcance reducido. Alta fragmentación nuclear. Exclusivamente investigación.' },
+  { nombre: 'Argón ⁴⁰Ar',    z: 18, m: 40, color: '#7B68C8',
+    nota: '<strong>Z²=324.</strong> Máximo pico de todos. Alcance muy corto. La fragmentación domina la zona post-pico.' },
+];
+
+const NOTAS_EXTRA = {};
+const E_U = 120, N = 800;
+
+// ── Modelo Bethe-Bloch simplificado ───────────────────────────────────────────
+function calcular(z, m, Eu = E_U) {
+  const alcance = 0.025 * Math.pow(Eu, 1.75) * Math.pow(m / z, 0.2);
+  const dist    = Array.from({length: N}, (_, i) => (i / (N-1)) * alcance * 1.18);
+  const z_ef    = z * (1 - Math.exp(-0.025 * Eu));
+  const dEdx    = dist.map(x => {
+    if (x < alcance) {
+      const prog   = x / alcance;
+      const vrel   = 1 - prog;
+      const bethe  = (z_ef * z_ef) / Math.max(vrel * vrel, 0.005);
+      const env    = Math.pow(1 - prog, 0.3);
+      const plat   = bethe * env * 0.004;
+      const pico   = plat * Math.exp(-Math.pow((prog - 0.98) / 0.018, 2)) * 3.2;
+      const val    = Math.max(plat, pico);
+      const frag   = z > 2 ? z * 0.8 * Math.exp(-x / (alcance * 0.5)) : 0;
+      return val + frag;
+    } else {
+      return z > 2 ? z * 1.2 * Math.exp(-(x - alcance) / 20) : 0;
+    }
+  });
+  const iMax  = dEdx.indexOf(Math.max(...dEdx));
+  return { dist, dEdx, alcance, profPico: dist[iMax], maxVal: dEdx[iMax] };
+}
+
+const datos = proyectiles.map(p => ({ ...p, ...calcular(p.z, p.m) }));
+let sel = 0;
+
+// ── Chart.js ──────────────────────────────────────────────────────────────────
+const ctx = document.getElementById('braggChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      data: [], fill: true,
+      borderWidth: 2.5, pointRadius: 0, tension: 0.3,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 350, easing: 'easeInOutQuart' },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1A1D27',
+        borderColor: '#2E3350', borderWidth: 1,
+        titleColor: '#E8EAF2', bodyColor: '#8B90A8',
+        callbacks: {
+          title: items => `Profundidad: ${parseFloat(items[0].label).toFixed(1)} mm`,
+          label:  item  => `dE/dx: ${item.raw.toFixed(3)}`
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { maxTicksLimit: 9, color: '#8B90A8', font: { size: 11 },
+                 callback: (_, i) => datos[sel].dist[i] !== undefined ? datos[sel].dist[i].toFixed(0) : '' },
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        title: { display: true, text: 'Profundidad en tejido (mm)', color: '#8B90A8', font: { size: 11 } }
+      },
+      y: {
+        min: 0,
+        ticks: { color: '#8B90A8', font: { size: 11 } },
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        title: { display: true, text: 'Dosis absorbida — dE/dx (u.a.)', color: '#8B90A8', font: { size: 11 } }
+      }
+    }
+  }
+});
+
+// ── Actualizar UI ──────────────────────────────────────────────────────────────
+function actualizar(i) {
+  sel = i;
+  const d = datos[i];
+
+  // Chart
+  chart.data.labels = d.dist.map(x => x.toFixed(2));
+  chart.data.datasets[0].data        = d.dEdx;
+  chart.data.datasets[0].borderColor = d.color;
+  chart.data.datasets[0].backgroundColor = d.color + '28';
+  chart.options.scales.y.max = d.maxVal * 1.28;
+  chart.update();
+
+  // Stats
+  const plateau = d.dEdx[Math.floor(N * 0.08)];
+  const ratio   = plateau > 0 ? (d.maxVal / plateau).toFixed(1) : '—';
+  document.getElementById('s-z').textContent    = d.z;
+  document.getElementById('s-z2').textContent   = d.z * d.z;
+  document.getElementById('s-prof').innerHTML   = `${d.profPico.toFixed(1)}<span class="unit">mm</span>`;
+  document.getElementById('s-ratio').innerHTML  = `${ratio}<span class="unit">×</span>`;
+
+  // Accent color en stats
+  document.querySelectorAll('.stat-card .value').forEach(el => el.style.color = d.color);
+
+  // Nota
+  document.getElementById('note-box').innerHTML = d.nota;
+  document.getElementById('note-box').style.borderLeftColor = d.color;
+
+  // Botones
+  document.querySelectorAll('.btn-ion').forEach((btn, j) => {
+    btn.classList.toggle('active', j === i);
+    btn.style.setProperty('--ion-color', datos[j].color);
+  });
+}
+
+// ── Botones proyectiles ────────────────────────────────────────────────────────
+const grp = document.getElementById('btn-group');
+proyectiles.forEach((p, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'btn-ion';
+  btn.style.setProperty('--ion-color', p.color);
+  btn.innerHTML = `<span class="dot"></span>${p.nombre}`;
+  btn.onclick = () => actualizar(i);
+  grp.appendChild(btn);
+});
+
+// Inicio
+actualizar(0);
+</script>
+</body>
+</html>
